@@ -649,13 +649,26 @@
 		var ticked = items.filter( function ( x ) {
 			return x.ticked;
 		} ).length;
-		var all = el( 'input', { type: 'checkbox', 'aria-label': 'Select all ' + GROUPS[ g ] } );
-		all.checked = ticked === items.length;
-		all.indeterminate = ticked > 0 && ticked < items.length;
+		// Select all leaves out links to pages that no longer exist: those
+		// can only be ticked one by one.
+		var pickable = items.filter( function ( x ) {
+			return ! x.broken;
+		} );
+		var pickedN = pickable.filter( function ( x ) {
+			return x.ticked;
+		} ).length;
+		var all = el( 'input', { type: 'checkbox', 'aria-label': 'Select all ' + GROUPS[ g ] + ( pickable.length < items.length ? ' (not the ones that no longer exist)' : '' ), disabled: ! pickable.length } );
+		all.checked = pickable.length > 0 && pickedN === pickable.length;
+		all.indeterminate = pickedN > 0 && pickedN < pickable.length;
 		all.addEventListener( 'change', function () {
-			items.forEach( function ( x ) {
+			pickable.forEach( function ( x ) {
 				x.ticked = all.checked;
 			} );
+			if ( ! all.checked ) {
+				items.forEach( function ( x ) {
+					x.ticked = false;
+				} );
+			}
 			renderImport();
 		} );
 		var toggle = el( 'button', { type: 'button', className: 'tbtst-gtoggle', 'aria-expanded': String( open ) }, [ ( open ? '▾ ' : '▸ ' ) + GROUPS[ g ], el( 'span', { className: 'tbtst-muted' }, ' · ' + ticked + ' of ' + items.length + ' ticked' ) ] );
@@ -708,7 +721,9 @@
 				el( 'td', { className: 'tbtst-cb' }, cb ),
 				el( 'td', { 'data-l': 'Title and link' }, [
 					el( 'b', null, x.title || '(no title)' ), el( 'br' ), linkLine( x ),
-					x.broken ? el( 'div', { className: 'tbtst-why' }, 'The page this links to no longer exists.' ) : null
+					x.current_url ? el( 'div', { className: 'tbtst-now' }, [ 'Now: ', el( 'a', { href: x.current_url, target: '_blank', rel: 'noopener' }, x.current_url ) ] ) : null,
+					x.reason ? el( 'div', { className: 'tbtst-reason' }, x.reason ) : null,
+					x.broken ? el( 'div', { className: 'tbtst-why' }, 'The page this links to no longer exists.' + ( x.note ? ' ' + x.note : '' ) ) : null
 				] ),
 				el( 'td', { 'data-l': 'Category' }, [ sel, why ? el( 'br' ) : null, why ] ),
 				el( 'td', { 'data-l': 'Level' }, x.level ),

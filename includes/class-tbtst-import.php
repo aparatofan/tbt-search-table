@@ -90,12 +90,14 @@ class TBTST_Import {
 		$names     = TBTST_Rows::category_names();
 		$imported  = TBTST_DB::import_refs();
 
+		// Automatic rows by link, and the ones that are posts (lessons and
+		// matching games) by post ID.
 		$auto_urls = array();
-		$lesson_id = array();
+		$auto_post = array();
 		foreach ( TBTST_Rows::auto()['rows'] as $a ) {
 			$auto_urls[ TBTST_Format::normalise_url( $a['url'] ) ] = true;
-			if ( 'lesson' === $a['source'] ) {
-				$lesson_id[ (int) $a['source_id'] ] = true;
+			if ( 'lesson' === $a['source'] || 'mg' === $a['source'] ) {
+				$auto_post[ (int) $a['source_id'] ] = true;
 			}
 		}
 
@@ -133,24 +135,48 @@ class TBTST_Import {
 
 			$norm    = TBTST_Format::normalise_url( $c['url'] );
 			$post_id = 0;
+			$post    = null;
 			if ( ! isset( $auto_urls[ $norm ] ) && 'site' === $c['kind'] ) {
-				$post_id = (int) url_to_postid( $c['url'] );
+				$post_id = self::resolve_post( $c['url'] );
+				$post    = $post_id ? get_post( $post_id ) : null;
 			}
-			if ( isset( $auto_urls[ $norm ] ) || ( $post_id && isset( $lesson_id[ $post_id ] ) ) ) {
+			$live = $post && 'publish' === $post->post_status;
+			if ( isset( $auto_urls[ $norm ] ) || ( $live && isset( $auto_post[ $post_id ] ) ) ) {
 				$skipped['covered'][] = $item;
 				continue;
 			}
-			if ( isset( $seen[ $norm ] ) ) {
+			// An old and a new address of the same post are one link.
+			$keys = array( $norm );
+			if ( $live ) {
+				$keys[] = 'post:' . $post_id;
+			}
+			$dupe = false;
+			foreach ( $keys as $k ) {
+				$dupe = $dupe || isset( $seen[ $k ] );
+				$seen[ $k ] = true;
+			}
+			if ( $dupe ) {
 				$skipped['dupe'][] = $item;
 				continue;
 			}
-			$seen[ $norm ] = true;
 			if ( isset( $imported[ $c['ref'] ] ) ) {
 				$skipped['imported'][] = $item;
 				continue;
 			}
 
-			$broken = 'site' === $c['kind'] && 0 === $post_id && ! self::looks_like_file( $c['url'] );
+			$broken  = 'site' === $c['kind'] && ! $live && ! self::looks_like_file( $c['url'] );
+			$reason  = '';
+			$note    = '';
+			$current = '';
+			if ( $live ) {
+				$reason  = self::why_not_automatic( $post, $settings );
+				$current = (string) get_permalink( $post );
+				if ( TBTST_Format::normalise_url( $current ) === $norm ) {
+					$current = '';
+				}
+			} elseif ( $broken && $post ) {
+				$note = 'The post at this address is ' . self::status_label( $post->post_status ) . '.';
+			}
 			$groups[ $c['kind'] ][] = array(
 				'ref'          => $c['ref'],
 				'title'        => $c['title'],
@@ -161,6 +187,9 @@ class TBTST_Import {
 				'level'        => $c['level'],
 				'ticked'       => ! $broken,
 				'broken'       => $broken,
+				'reason'       => $reason,
+				'note'         => $note,
+				'current_url'  => $current,
 			);
 		}
 
@@ -294,6 +323,111 @@ class TBTST_Import {
 			'level'        => '' !== $lvl ? $lvl : TBTST_Format::cef_level( $tags ),
 			'kind'         => '' === $url ? '' : TBTST_Format::kind( $url, $site_host, $settings['md_hosts'] ),
 		);
+	}
+
+	/**
+	 * The post a link to this site points to, including through an old
+	 * address. No HTTP request is made. In order:
+	 *   1. ?p= / ?page_id=: that ID, if the post exists;
+	 *   2. url_to_postid();
+	 *   3. the last path segment as a post or page slug (get_page_by_path);
+	 *   4. the newest published post with that slug in _wp_old_slug (what
+	 *      WordPress's old-slug redirect would open).
+	 * A post found in 2–3 that isn't published is returned only when step 4
+	 * finds nothing, so a draft that took an address doesn't hide the
+	 * published post that used to have it.
+	 *
+	 * @param string $url Link.
+	 * @return int Post ID, or 0.
+	 */
+	public static function resolve_post( $url ) {
+		global $wpdb;
+
+		$id = TBTST_Format::query_post_id( $url );
+		if ( $id ) {
+			return get_post( $id ) ? $id : 0;
+		}
+
+		$fallback = 0;
+		$id       = (int) url_to_postid( $url );
+		if ( $id ) {
+			if ( 'publish' === get_post_status( $id ) ) {
+				return $id;
+			}
+			$fallback = $id;
+		}
+
+		$slug = TBTST_Format::slug_from_url( $url );
+		if ( '' === $slug ) {
+			return $fallback;
+		}
+
+		$p = get_page_by_path( $slug, OBJECT, array( 'post', 'page' ) );
+		if ( $p instanceof WP_Post ) {
+			if ( 'publish' === $p->post_status ) {
+				return (int) $p->ID;
+			}
+			$fallback = $fallback ? $fallback : (int) $p->ID;
+		}
+
+		$old = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT p.ID FROM {$wpdb->postmeta} m
+				 JOIN {$wpdb->posts} p ON p.ID = m.post_id
+				 WHERE m.meta_key = '_wp_old_slug' AND m.meta_value = %s
+				   AND p.post_status = 'publish' AND p.post_type NOT IN ( 'revision', 'attachment', 'nav_menu_item' )
+				 ORDER BY p.post_date DESC, p.ID DESC LIMIT 1",
+				$slug
+			)
+		);
+		return $old ? $old : $fallback;
+	}
+
+	/**
+	 * Why a published post isn't an automatic row.
+	 *
+	 * @param WP_Post $post     Post.
+	 * @param array   $settings Settings.
+	 * @return string
+	 */
+	private static function why_not_automatic( WP_Post $post, array $settings ) {
+		if ( 'post' !== $post->post_type ) {
+			$obj   = get_post_type_object( $post->post_type );
+			$label = $obj ? strtolower( $obj->labels->singular_name ) : $post->post_type;
+			return 'Lesson exists, but it is a ' . $label . ', not a post';
+		}
+		$cats  = get_the_category( $post->ID );
+		$never = array();
+		$names = array();
+		foreach ( $cats as $t ) {
+			$names[] = TBTST_Sources::decode( $t->name );
+			if ( in_array( (int) $t->term_id, array_map( 'intval', $settings['never_cats'] ), true ) ) {
+				$never[] = TBTST_Sources::decode( $t->name );
+			}
+		}
+		if ( $never ) {
+			return 'Lesson exists, but it is in Never list (' . implode( ', ', $never ) . ')';
+		}
+		$in_lesson = array_intersect( array_map( 'intval', wp_list_pluck( $cats, 'term_id' ) ), array_map( 'intval', $settings['lesson_cats'] ) );
+		if ( ! $in_lesson ) {
+			return 'Lesson exists, but its category (' . ( $names ? implode( ', ', $names ) : 'none' ) . ') isn\'t in Lesson categories';
+		}
+		return 'Lesson exists, but the table hasn\'t picked it up yet: press Refresh now';
+	}
+
+	/**
+	 * @param string $status Post status.
+	 * @return string
+	 */
+	private static function status_label( $status ) {
+		$map = array(
+			'draft'   => 'a draft',
+			'pending' => 'waiting for review',
+			'private' => 'private',
+			'future'  => 'scheduled, not published yet',
+			'trash'   => 'in the trash',
+		);
+		return $map[ $status ] ?? 'not published (' . $status . ')';
 	}
 
 	/**

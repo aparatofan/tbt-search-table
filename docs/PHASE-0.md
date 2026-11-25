@@ -1,6 +1,19 @@
 # TBT Search Table 0.1.0: Phase 0 report
 
-Status: **waiting on Mariusz.** Steps 4 and 5 (the repos) are done below. Steps 1–3 need the SQL at the end of this file run in phpMyAdmin on `serwer135893_bluetree`, with the results pasted back into the session.
+Status: **done, and 0.1.0 is built on it.**
+- **Step 1 (table 185)** was answered in the updated spec (25 Nov 2026). The rows are in `wp_wpdatatable_62`, and the importer reads that name from `wp_wpdatatables` at run time.
+- **Steps 4–5** are below.
+- **Steps 2–3** (categories and CEF tags) are optional now: the defaults below come from the approved prototype. The SQL at the end is still useful as a check before the first **Settings → Save**.
+
+## Step 6: defaults used
+
+| Setting | Default |
+|---|---|
+| Lesson categories | The 23 categories in the prototype (and in `TBTST_Settings::DEFAULT_LESSON_CATEGORIES`): Better communicator, Better writer, Business English, Culture, English grammar, Entertain Yourself, Everyday English, Health and fitness, How to learn, How to say it 1, How to say it 3, Learn from TED, Learn more words, Man and Society, Personal productivity, Science stuff, Surprise me, Talking Picture, Tests and Quizzes, The arts, Travel and nature, What do you think, Wise quotes. These are matched to the site's categories by name, ignoring case, spaces and & vs "and". |
+| Never list | *darmowa lekcja* |
+| Extra categories | Language Games, Mind-maps |
+| Multidecker hosts | multidecker.com, squarewords.arturdelura.com |
+| Never import table 185 categories | Handouts, Handout, Video Library, Audio library, Articles |
 
 ## Step 4: tools (read from the repos' `main`)
 
@@ -15,91 +28,22 @@ All four helpers depend only on an option and a slug, so calling them from this 
 
 ### Two things that differ from the spec
 
-1. **`CATEGORY_ICONS` doesn't exist.** Lesson Builder (`main`, last commit 16 Nov 2026) has only `TBTLB_Config::CATEGORIES` with **two** entries: *Man and Society* and *Personal productivity*. No other repo has a list of 23 categories either. The **Lesson categories** default therefore has to come from the step 2 results plus your corrections.
-2. **`_tbtlb_type` is never written.** Lesson Builder writes only `_tbtlb_level` (values `A1`–`C2`, `class-tbtlb-rest.php:332`). The spec only needs the level, so nothing changes. I'll just not read `_tbtlb_type`.
+1. **`CATEGORY_ICONS` doesn't exist.** Lesson Builder (`main`, last commit 16 Nov 2026) has only `TBTLB_Config::CATEGORIES` with **two** entries: *Man and Society* and *Personal productivity*. The prototype's `WP_CATS` list has the 23, so that's the default (see Step 6).
+2. **`_tbtlb_type` is never written.** Lesson Builder writes only `_tbtlb_level` (values `A1`–`C2`, `class-tbtlb-rest.php:332`). The spec only needs the level, so nothing changes. This plugin doesn't read `_tbtlb_type`.
 
-### One question (you can answer with the SQL results)
+### One open question
 
-Test Maker: the spec says `access = 'open'` only. Published `login` tests with no class are also usable by any logged-in student, which is everyone on the VIP page. **Keep `open` only** (the spec, and my recommendation), or include `login` tests with no class too?
+Test Maker: the spec says `access = 'open'` only. Published `login` tests with no class are also usable by any logged-in student, which is everyone on the VIP page. 0.1.0 keeps `open` only, as the spec says. Including `login` tests with no class would be a one-line change in `TBTST_Sources::test()`.
 
 ## Step 5: skeleton
 
-Everything is in place to copy. From `tbt-poll`: the bootstrap, the `tbt_hub_items` filter, the admin menu under `TBT_HUB_SLUG` with its fallback, `deploy.yml` (with `tbt-poll.php` → `tbt-search-table.php` in the preflight), `tests/`, `fonts.css` and the Roboto Slab fonts. From `flashcards`: `tbt-flashcards/assets/vendor/tbt/tbt-tokens.css` and the table, search and pager patterns in `tbt-flashcards/assets/css/glossary.css`.
-
-## Step 6: still to fill in after the SQL
-
-| Setting | Proposed default |
-|---|---|
-| Lesson categories | *from step 2* |
-| Never list | *darmowa lekcja* plus any other labels from step 2 |
-| Multidecker hosts | *from step 1h* |
-| Table 185 | rows in the database? how many (over ~3 000 means paging the scan)? how are tags separated? |
+Copied. From `tbt-poll`: the bootstrap, the `tbt_hub_items` filter, `deploy.yml` (with `tbt-poll.php` → `tbt-search-table.php` in the preflight), `tests/`, `fonts.css` and the Roboto Slab fonts. TBT Poll has no admin page, so the submenu under `TBT_HUB_SLUG`, with a top-level menu when Hub is absent, follows TBT Swipe and Translation Drill. From `flashcards`: `tbt-flashcards/assets/vendor/tbt/tbt-tokens.css` and the table, search and pager patterns in `tbt-flashcards/assets/css/glossary.css`.
 
 ---
 
 ## SQL for phpMyAdmin (all read-only)
 
-**First run 0.** If the prefix it shows isn't `wp_`, replace `wp_` in every query below with the real one.
-
-```sql
--- 0. Table prefix
-SHOW TABLES LIKE '%options';
-```
-
-### Step 1: table 185
-
-```sql
--- 1a. wpDataTables tables
-SHOW TABLES LIKE '%wpdatatable%';
-```
-
-```sql
--- 1b. Table 185 itself (mysql_table_name = where its rows live)
-SELECT id, title, table_type, mysql_table_name, LEFT(content, 400) AS content
-FROM wp_wpdatatables WHERE id = 185;
-```
-
-```sql
--- 1c. Its columns as wpDataTables sees them
-SELECT orig_header, display_header, column_type, pos
-FROM wp_wpdatatables_columns WHERE table_id = 185 ORDER BY pos;
-```
-
-In 1d–1h, replace `wp_wpdatatable_185` with the `mysql_table_name` from 1b if it differs.
-
-```sql
--- 1d.
-SHOW CREATE TABLE wp_wpdatatable_185;
-```
-
-```sql
--- 1e.
-SELECT COUNT(*) FROM wp_wpdatatable_185;
-```
-
-```sql
--- 1f.
-SELECT * FROM wp_wpdatatable_185 LIMIT 15;
-```
-
-In 1g, replace `LINKCOL` with the link column's name from 1d. The query handles a bare URL, `<a href="…">`, `<a href='…'>` and wpDataTables' `url||text` form.
-
-```sql
--- 1g. Rows per link host
-SELECT LOWER(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(
-         SUBSTRING_INDEX(IF(LOCATE('href=', LINKCOL) > 0, SUBSTRING(LINKCOL, LOCATE('href=', LINKCOL) + 6), LINKCOL), '||', 1),
-       '://', -1), '/', 1), '"', 1), '''', 1))) AS host,
-       COUNT(*) AS n_rows
-FROM wp_wpdatatable_185 GROUP BY host ORDER BY n_rows DESC;
-```
-
-In 1h, replace `CATCOL` with the category column's name. This shows the made-up categories the import will have to fix.
-
-```sql
--- 1h. Rows per category in table 185
-SELECT CATCOL AS category, COUNT(*) AS n_rows
-FROM wp_wpdatatable_185 GROUP BY CATCOL ORDER BY n_rows DESC;
-```
+The table prefix is `wp_`.
 
 ### Step 2: categories
 

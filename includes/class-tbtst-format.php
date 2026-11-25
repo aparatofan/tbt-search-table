@@ -192,6 +192,45 @@ class TBTST_Format {
 	}
 
 	/**
+	 * The last path segment of a link, as a post slug: decoded, lower-case.
+	 * '' for the home page or a link with no path.
+	 *
+	 * @param mixed $url URL.
+	 * @return string
+	 */
+	public static function slug_from_url( $url ) {
+		$path = parse_url( self::trim( (string) $url ), PHP_URL_PATH );
+		if ( ! is_string( $path ) ) {
+			return '';
+		}
+		$parts = array_values( array_filter( explode( '/', $path ), 'strlen' ) );
+		if ( ! $parts ) {
+			return '';
+		}
+		return mb_strtolower( rawurldecode( (string) end( $parts ) ), 'UTF-8' );
+	}
+
+	/**
+	 * The post ID in a ?p= or ?page_id= link, else 0.
+	 *
+	 * @param mixed $url URL.
+	 * @return int
+	 */
+	public static function query_post_id( $url ) {
+		$query = parse_url( self::trim( (string) $url ), PHP_URL_QUERY );
+		if ( ! is_string( $query ) ) {
+			return 0;
+		}
+		parse_str( $query, $q );
+		foreach ( array( 'p', 'page_id' ) as $k ) {
+			if ( isset( $q[ $k ] ) && is_scalar( $q[ $k ] ) && ctype_digit( (string) $q[ $k ] ) && (int) $q[ $k ] > 0 ) {
+				return (int) $q[ $k ];
+			}
+		}
+		return 0;
+	}
+
+	/**
 	 * What a table 185 link points to.
 	 *
 	 * @param string $url       URL.

@@ -266,6 +266,16 @@ tr.tbtst-is-hidden td:first-child .tbtst-ra {
 	color: #b32d2e;
 	margin: 0;
 }
+.tbtst-now {
+	font-size: 12px;
+	color: #646970;
+	word-break: break-all;
+}
+.tbtst-reason {
+	font-size: 12px;
+	color: #646970;
+	margin-top: 2px;
+}
 tr.tbtst-unticked td {
 	opacity: .65;
 }

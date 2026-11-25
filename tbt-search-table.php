@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       TBT Search Table
  * Description:       The VIP page's advanced search: lessons and open activities, filled in from the site, with edits, hidden rows and manual rows. Replaces wpDataTables table 185.
- * Version:           0.1.0
+ * Version:           0.1.1
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            The Blue Tree
@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'TBTST_VERSION', '0.1.0' );
+define( 'TBTST_VERSION', '0.1.1' );
 define( 'TBTST_DB_VERSION', '1' );
 define( 'TBTST_FILE', __FILE__ );
 define( 'TBTST_DIR', plugin_dir_path( __FILE__ ) );

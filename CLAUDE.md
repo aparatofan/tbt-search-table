@@ -2,7 +2,7 @@
 
 The VIP page's advanced search table (`[tbt_search_table]`), replacing wpDataTables table 185. Automatic rows from lessons and four tools, plus overrides, hidden rows and manual rows, plus a one-off import from table 185.
 
-**Current release: 0.1.0 → `docs/SPEC-0.1.0.md`.** The approved look is `docs/prototypes/search-table.html` (the prototype wins on looks, the spec on behaviour). Phase 0 findings: `docs/PHASE-0.md`.
+**Current release: 0.1.1 → `docs/SPEC-0.1.1.md`** (a fix on top of `docs/SPEC-0.1.0.md`, which describes the whole plugin; history in `CHANGELOG.md`). The approved look is `docs/prototypes/search-table.html` (the prototype wins on looks, the spec on behaviour). Phase 0 findings: `docs/PHASE-0.md`.
 
 ## Basics
 
@@ -47,6 +47,7 @@ Schema version: `TBTST_DB_VERSION`. `maybe_upgrade()` runs on `plugins_loaded`, 
 - Titles are decoded before caching; the front and admin insert every value as text (`textContent`), never as HTML.
 - Embedded JSON goes through `TBTST_Shortcode::json()` (hex-escaped), so `esc_attr` can't alter it.
 - `fold()` exists in PHP (`TBTST_Format`) and JS (`table.js`, `admin.js`). Keep them in step.
+- Table 185 links to this site are matched to posts by `TBTST_Import::resolve_post()` (old slugs included), never by an HTTP request.
 - Refreshing deletes orphaned overrides only for sources that were read and returned rows, so a deactivated plugin never wipes edits.
 
 ## Validation

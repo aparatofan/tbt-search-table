@@ -69,6 +69,20 @@ same( TBTST_Format::normalise_url( 'https://thebluetree.pl/?test=t1&p=12' ), 'ht
 same( TBTST_Format::normalise_url( 'https://thebluetree.pl/%C5%82%C3%B3d%C5%BA/' ), 'https://thebluetree.pl/łódź', 'normalise_url: encoded path' );
 same( TBTST_Format::normalise_url( '' ), '', 'normalise_url: empty' );
 
+/* ---------- slug_from_url() / query_post_id() ---------- */
+
+same( TBTST_Format::slug_from_url( 'https://thebluetree.pl/we-should-all-grow-fat-and-be-happy/' ), 'we-should-all-grow-fat-and-be-happy', 'slug_from_url: trailing slash' );
+same( TBTST_Format::slug_from_url( 'https://thebluetree.pl/choosing-career' ), 'choosing-career', 'slug_from_url: no trailing slash' );
+same( TBTST_Format::slug_from_url( 'https://thebluetree.pl/choosing-career/?utm_source=x#top' ), 'choosing-career', 'slug_from_url: query string and fragment ignored' );
+same( TBTST_Format::slug_from_url( 'https://thebluetree.pl/2019/05/6-Elevator-Pitches/' ), '6-elevator-pitches', 'slug_from_url: last segment, lower-case' );
+same( TBTST_Format::slug_from_url( 'https://thebluetree.pl/%C5%BCaba/' ), 'żaba', 'slug_from_url: encoded slug decoded' );
+same( TBTST_Format::slug_from_url( 'https://thebluetree.pl/?p=123' ), '', 'slug_from_url: ?p=123 has no slug' );
+same( TBTST_Format::slug_from_url( 'https://thebluetree.pl' ), '', 'slug_from_url: home' );
+same( TBTST_Format::query_post_id( 'https://thebluetree.pl/?p=123' ), 123, 'query_post_id: ?p=123' );
+same( TBTST_Format::query_post_id( 'https://thebluetree.pl/?page_id=45&x=1' ), 45, 'query_post_id: ?page_id=45' );
+same( TBTST_Format::query_post_id( 'https://thebluetree.pl/?p=abc' ), 0, 'query_post_id: not a number' );
+same( TBTST_Format::query_post_id( 'https://thebluetree.pl/choosing-career/' ), 0, 'query_post_id: none' );
+
 /* ---------- kind() ---------- */
 
 $md = array( 'multidecker.com', 'squarewords.arturdelura.com' );

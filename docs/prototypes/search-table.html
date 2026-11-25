@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TBT Search Table prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Roboto+Mono:wght@500;700&family=Roboto+Slab:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: TBT's own product voice, calm and tidy, light only like the live glossary.
+   IDEA: a library catalogue card drawer: every lesson and open activity in one list.
+   PICTURE: the working table itself, at the top of each view.
+   COLOUR and TYPE: TBT tokens: Blue #0856C9, Roboto Mono identity, Roboto Slab content, Roboto UI.
+   LAYOUT: prototype bar, then one view at a time: VIP page, lesson glossary, wp-admin screen. */
+:root{color-scheme:light;
+ --blue:#0856C9;--blue-d:#063F94;--canvas:#F6F8FC;--surface:#fff;--input:#F0F5FE;--sel:#EDF4FF;--border:#D8E3F0;
+ --ink:#1F2937;--muted:#667085;--ok:#16803C;--ok-bg:#ECFDF3;--err:#C62828;--err-bg:#FFF1F1;--gi:#663366;--pd:#006600;--le:#660000;
+ --ring:0 0 0 3px rgba(8,86,201,.18);--ui:"Roboto",system-ui,sans-serif;--slab:"Roboto Slab",Georgia,serif;--mono:"Roboto Mono",ui-monospace,monospace;
+ --wpblue:#2271b1}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--canvas);color:var(--ink);font:16px/1.5 var(--ui);overflow-x:clip}
+[hidden]{display:none!important}
+button,input,select{font:inherit}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Prototype bar */
+.pbar{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:10px max(4vw,16px);background:#1F2937;color:#fff;font-size:14px}
+.pbar b{font-family:var(--mono);font-weight:500}
+.pbar nav{display:flex;gap:4px;flex-wrap:wrap}
+.pbar a{color:#cbd5e1;text-decoration:none;padding:6px 12px;border-radius:999px}
+.pbar a[aria-current=page]{background:#fff;color:var(--ink);font-weight:600}
+.pbar .note{margin-left:auto;color:#94a3b8;font-size:13px}
+
+/* Shared TBT controls */
+.page{max-width:1240px;margin:0 auto;padding:clamp(24px,4vw,48px) max(4vw,16px)}
+.h1{font:700 clamp(30px,4.5vw,48px)/1.05 var(--mono);color:var(--blue);letter-spacing:.02em;margin:0 0 8px;text-transform:uppercase}
+.lead{color:var(--blue);font:400 18px/1.4 var(--slab);margin:0 0 28px}
+.field label{display:block;font:700 13px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.inp,.sel{width:100%;height:44px;border:1px solid transparent;border-radius:12px;background:var(--input);color:var(--ink);font-size:16px;padding:0 14px}
+.sel{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 19px,calc(100% - 13px) 19px;background-size:5px 5px;background-repeat:no-repeat;padding-right:34px}
+.inp:focus,.sel:focus{outline:none;background-color:#fff;border-color:var(--blue);box-shadow:var(--ring)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 22px;border-radius:999px;border:0;background:var(--blue);color:#fff;font:600 14px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;text-decoration:none}
+.btn:hover{background:var(--blue-d)}.btn:focus-visible{outline:none;box-shadow:var(--ring)}
+.btn.ghost{background:#fff;color:var(--blue);border:1px solid var(--border)}.btn.ghost:hover{background:var(--sel);border-color:var(--blue)}
+.btn.sm{height:34px;padding:0 16px;font-size:12px}
+
+/* VIP search */
+.filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:0 6px 20px rgba(24,56,96,.07)}
+.bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 20px;margin:24px 0 12px}
+.bar .left{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:15px}
+.bar .left .sel{width:84px}
+.search{position:relative;flex:0 1 340px}
+.search .inp{padding-left:40px}
+.search svg{position:absolute;left:13px;top:13px;color:var(--muted)}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;padding:0;border-bottom:2px solid var(--blue)}
+.tbl th button{all:unset;box-sizing:border-box;display:flex;gap:6px;align-items:center;width:100%;padding:12px 14px;font:700 13px/1.2 var(--ui);letter-spacing:.05em;text-transform:uppercase;color:var(--blue);cursor:pointer;border-radius:8px 8px 0 0}
+.tbl th button:hover{background:var(--sel)}.tbl th button:focus-visible{box-shadow:var(--ring)}
+.tbl th span.arr{color:var(--muted);font-size:11px}.tbl th[aria-sort$=ending] span.arr{color:var(--blue)}
+.tbl th.plain{padding:12px 14px;font:700 13px/1.2 var(--ui);letter-spacing:.05em;text-transform:uppercase;color:var(--blue)}
+.tbl td{padding:14px;border-bottom:1px solid var(--border);vertical-align:top;font:400 16px/1.45 var(--slab)}
+.tbl tbody tr:nth-child(even) td{background:#F8FAFD}
+.tbl td.t{font-weight:500}
+.tag{display:inline-block;margin:0 6px 6px 0;padding:2px 10px;border-radius:999px;background:var(--sel);color:var(--blue-d);border:0;font:400 14px/1.6 var(--ui);cursor:pointer}
+.tag:hover{background:#dbe8fd}.tag:focus-visible{outline:none;box-shadow:var(--ring)}
+.lvl{display:inline-block;min-width:38px;text-align:center;padding:3px 8px;border-radius:8px;background:#fff;border:1px solid var(--border);font:600 14px/1.4 var(--mono)}
+.cat-tool{color:var(--muted);font-style:italic}
+.empty td{text-align:center;color:var(--muted);font-family:var(--ui);padding:36px}
+.pager{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:18px;color:var(--muted);font-size:15px}
+.pages{display:flex;gap:6px;flex-wrap:wrap}
+.pg{min-width:40px;height:40px;padding:0 12px;border:1px solid var(--border);border-radius:12px;background:#fff;color:var(--blue);font-weight:600;cursor:pointer}
+.pg[aria-current=page]{background:var(--blue);color:#fff;border-color:var(--blue)}
+.pg:disabled{opacity:.45;cursor:not-allowed}.pg:focus-visible{outline:none;box-shadow:var(--ring)}
+.active-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;font-size:14px;color:var(--muted)}
+.chipx{border:1px solid var(--blue);background:#fff;color:var(--blue);border-radius:999px;padding:2px 10px;cursor:pointer;font-size:14px}
+.sample{font-size:13px;color:var(--muted);margin-top:28px}
+
+/* Glossary */
+.lesson-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px}
+.sec-h{font:700 26px/1.1 var(--mono);color:var(--gi);text-transform:uppercase;letter-spacing:.03em;margin:28px 0 18px}
+.switch{display:inline-flex;border:1px solid var(--border);border-radius:999px;background:#fff;padding:3px}
+.switch button{border:0;background:none;padding:6px 14px;border-radius:999px;font-size:14px;cursor:pointer;color:var(--muted)}
+.switch button[aria-pressed=true]{background:var(--blue);color:#fff}
+.gl .tbl th{border-bottom-color:var(--gi)}.gl .tbl th button,.gl .tbl th.plain{color:var(--gi)}
+.gl .tbl td:first-child{width:46%}
+.gl td.act{width:150px;text-align:right;font-family:var(--ui)}
+.add{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--border);background:#fff;color:var(--blue);font:600 13px/1 var(--ui);cursor:pointer;white-space:nowrap}
+.add:hover{background:var(--sel);border-color:var(--blue)}.add:focus-visible{outline:none;box-shadow:var(--ring)}
+.add svg{flex:none}
+.inDict{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;color:var(--ok);font:600 13px/1 var(--ui);white-space:nowrap}
+
+/* TBT modal */
+.ov{position:fixed;inset:0;z-index:40;background:rgba(17,24,39,.45);display:grid;place-items:center;padding:16px}
+.modal{width:min(480px,100%);background:#fff;border-radius:22px;padding:28px;box-shadow:0 10px 28px rgba(8,86,201,.12)}
+.modal h2{margin:0 0 4px;font:700 20px/1.2 var(--mono);color:var(--blue);text-transform:uppercase;letter-spacing:.03em}
+.modal .word{font:600 22px/1.3 var(--slab);margin:16px 0 2px}
+.modal .field{margin-top:18px}
+.hint{font-size:14px;color:var(--muted);margin-top:8px}.hint b{color:var(--ink)}
+.hint.err{color:var(--err)}
+.mact{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;background:var(--ok);color:#fff;padding:12px 20px;border-radius:999px;font-weight:600;box-shadow:0 10px 28px rgba(0,0,0,.18)}
+
+/* wp-admin */
+.wp{background:#f0f0f1;min-height:calc(100vh - 48px);font:14px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif;color:#1d2327}
+.wp .wrap{max-width:1240px;margin:0 auto;padding:20px max(3vw,16px) 48px}
+.wp h1{font-size:23px;font-weight:400;margin:0 0 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.wpb{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border:1px solid var(--wpblue);border-radius:3px;background:#f6f7f7;color:var(--wpblue);font-size:13px;cursor:pointer;text-decoration:none}
+.wpb:hover{background:#f0f6fc}.wpb.pri{background:var(--wpblue);color:#fff}.wpb.pri:hover{background:#135e96}
+.wpb:focus-visible,.wp a:focus-visible,.wp input:focus,.wp select:focus{outline:2px solid var(--wpblue);outline-offset:1px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid #c3c4c7;margin:8px 0 16px;flex-wrap:wrap}
+.tabs button{border:1px solid #c3c4c7;border-bottom:0;background:#dcdcde;padding:6px 12px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:-1px;color:#50575e}
+.tabs button[aria-selected=true]{background:#f0f0f1;color:#000;border-bottom:1px solid #f0f0f1}
+.tabs .n{display:inline-block;margin-left:6px;padding:0 7px;border-radius:9px;background:#d63638;color:#fff;font-size:11px;line-height:18px}
+.wpbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.wp input[type=search],.wp select,.wp input[type=text],.wp input[type=url]{min-height:32px;border:1px solid #8c8f94;border-radius:4px;padding:0 8px;background:#fff;font-size:14px}
+.wpt{width:100%;border-collapse:collapse;background:#fff;border:1px solid #c3c4c7}
+.wpt th{text-align:left;padding:8px 10px;border-bottom:1px solid #c3c4c7;font-weight:600}
+.wpt td{padding:9px 10px;border-top:1px solid #f0f0f1;vertical-align:top}
+.wpt tbody tr:nth-child(odd){background:#f6f7f7}
+.wpt .rt{font-weight:600;color:var(--wpblue)}
+.ra{font-size:13px;color:#a7aaad;margin-top:4px;visibility:hidden}
+.wpt tr:hover .ra,.wpt tr:focus-within .ra{visibility:visible}
+.ra button{border:0;background:none;padding:0;color:var(--wpblue);cursor:pointer;font-size:13px}.ra button.del{color:#b32d2e}
+.src{display:inline-block;padding:1px 8px;border-radius:3px;font-size:12px;font-weight:600;background:#e8f0fb;color:#0a4b78}
+.src.manual{background:#fcf0e3;color:#8a4b00}
+.flag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:3px;font-size:11px;font-weight:600;background:#dcdcde;color:#3c434a}
+.flag.hid{background:#f0f0f1;color:#8c8f94;border:1px dashed #8c8f94}
+tr.is-hidden td{opacity:.55}
+.notice{background:#fff;border-left:4px solid var(--wpblue);padding:10px 14px;margin:0 0 14px;box-shadow:0 1px 1px rgba(0,0,0,.04)}
+.notice.warn{border-left-color:#dba617}
+.stats{display:flex;flex-wrap:wrap;gap:24px;margin-top:4px}.stats b{font-size:18px;display:block}
+.badcat{border-color:#d63638!important;background:#fcf0f1!important}
+.why{font-size:12px;color:#b32d2e}
+.wpmodal{width:min(520px,100%);background:#fff;border-radius:4px;padding:20px 24px;box-shadow:0 3px 30px rgba(0,0,0,.2);font:14px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif;color:#1d2327}
+.wpmodal h2{font-size:18px;font-weight:600;margin:0 0 12px}
+.wpmodal .row{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;align-items:center;margin-bottom:12px}
+.wpmodal .row input,.wpmodal .row select{width:100%}
+.wpmodal .desc{font-size:13px;color:#646970;margin:-4px 0 12px 120px}
+.wpmodal .ro{color:#646970;word-break:break-all}
+@media(max-width:800px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.filters{grid-template-columns:minmax(0,1fr)}.pbar .note{margin-left:0}
+ .stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:7em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:6.5em;margin-inline-start:-7em;font:600 12px/1.6 var(--ui);color:var(--muted);text-transform:uppercase}.stack td:empty{display:none}.gl td.act{width:auto;text-align:start}.wpmodal .desc{margin-left:0}.wpmodal .row{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:no-preference){.toast{animation:up .25s cubic-bezier(.22,.61,.36,1)}@keyframes up{from{opacity:0;transform:translate(-50%,12px)}}}
+</style>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent.replace(/[↕↑↓]/g,'').trim()||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<div class="pbar">
+ <b>TBT Search Table · prototype</b>
+ <nav aria-label="Prototype views">
+  <a href="#vip">VIP page</a><a href="#glossary">Lesson glossary</a><a href="#admin">Admin</a>
+ </nav>
+ <span class="note">Sample data. Changes in Admin show on the VIP page.</span>
+</div>
+
+<!-- VIP PAGE -->
+<main id="v-vip" class="page" hidden>
+ <h1 class="h1">Advanced search</h1>
+ <p class="lead">Filter lessons and activities by title, category, tags or level.</p>
+ <div class="filters">
+  <div class="field"><label for="fTitle">Title</label><input id="fTitle" class="inp" type="text" placeholder="Any title"></div>
+  <div class="field"><label for="fCat">Category</label><select id="fCat" class="sel"></select></div>
+  <div class="field"><label for="fTags">Tags</label><input id="fTags" class="inp" type="text" placeholder="e.g. sleep"></div>
+  <div class="field"><label for="fLvl">Level</label><select id="fLvl" class="sel"><option value="">All levels</option><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></div>
+ </div>
+ <div class="active-f" id="activeF" hidden></div>
+ <div class="bar">
+  <div class="left"><span>Show</span><select id="per" class="sel" aria-label="Rows per page"><option>5</option><option selected>10</option><option>25</option><option>50</option><option>100</option></select><span>entries</span></div>
+  <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" class="inp" type="search" placeholder="Search everything" aria-label="Search everything"></div>
+ </div>
+ <table class="tbl stack" id="vipT">
+  <thead><tr>
+   <th data-k="title" aria-sort="ascending" style="width:34%"><button type="button">Title <span class="arr">↑</span></button></th>
+   <th data-k="cat" aria-sort="none"><button type="button">Category <span class="arr">↕</span></button></th>
+   <th class="plain">Tags</th>
+   <th data-k="level" aria-sort="none" style="width:90px"><button type="button">Level <span class="arr">↕</span></button></th>
+   <th class="plain" style="width:110px">Link</th>
+  </tr></thead><tbody></tbody>
+ </table>
+ <div class="pager"><span id="range"></span><div class="pages" id="pages"></div></div>
+ <p class="sample">Sample rows. On the site the table fills itself from lessons and open activities, so new items appear without any typing.</p>
+</main>
+
+<!-- GLOSSARY -->
+<main id="v-glossary" class="page" hidden>
+ <div class="lesson-top">
+  <span style="color:var(--muted);font-size:14px">End of the lesson <i>Why we sleep</i></span>
+  <div class="switch" role="group" aria-label="View as"><button type="button" data-li="1" aria-pressed="true">Logged in</button><button type="button" data-li="0" aria-pressed="false">Logged out</button></div>
+ </div>
+ <h2 class="sec-h">Glossary</h2>
+ <div class="gl">
+  <div class="bar" style="margin-top:0">
+   <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="gq" class="inp" type="search" placeholder="Search the glossary" aria-label="Search the glossary"></div>
+   <span id="gcount" style="color:var(--muted);font-size:15px"></span>
+  </div>
+  <table class="tbl stack" id="glT">
+   <thead><tr><th class="plain">Expression</th><th class="plain">Polish translation</th><th class="plain act" id="glActH"><span class="vh">My Dictionary</span></th></tr></thead>
+   <tbody></tbody>
+  </table>
+  <div class="pager"><span id="grange"></span><div class="pages" id="gpages"></div></div>
+ </div>
+ <p class="sample">Old glossaries are imported from wpDataTables and stored inside the lesson. Builder lessons keep reading theirs from the flashcard sets. Both get the same table and button.</p>
+</main>
+
+<!-- ADMIN -->
+<div id="v-admin" class="wp" hidden>
+ <div class="wrap">
+  <h1>Search Table <button class="wpb" id="addRow" type="button">Add row</button></h1>
+  <div class="tabs" role="tablist">
+   <button role="tab" data-t="rows" aria-selected="true">All rows</button>
+   <button role="tab" data-t="import" aria-selected="false">Import from table 185 <span class="n" id="nImp"></span></button>
+   <button role="tab" data-t="cef" aria-selected="false">Missing CEF tag <span class="n" id="nCef"></span></button>
+  </div>
+
+  <section data-p="rows">
+   <div class="notice">Lessons and open activities are added automatically. Edit a row to change what the VIP table shows; <b>Reset</b> brings back the automatic values. Category is always picked from the list.</div>
+   <div class="wpbar">
+    <select id="aSrc" aria-label="Filter by source"><option value="">All sources</option></select>
+    <input id="aQ" type="search" placeholder="Search rows" aria-label="Search rows">
+    <span id="aCount" style="color:#646970"></span>
+   </div>
+   <table class="wpt stack"><thead><tr><th>Title</th><th>Source</th><th>Category</th><th>Tags</th><th>Level</th></tr></thead><tbody id="aBody"></tbody></table>
+  </section>
+
+  <section data-p="import" hidden>
+   <div class="notice"><div class="stats">
+    <div><b>965</b>rows in table 185</div><div><b>921</b>match a lesson or activity, skipped</div><div><b>17</b>duplicates, skipped</div><div><b id="leftN">27</b>left for you to check</div>
+   </div></div>
+   <p style="margin:0 0 10px;color:#646970">Tick the rows to keep as manual rows. Red categories don't exist on the site: pick a real one first. Showing a sample of the 27.</p>
+   <table class="wpt stack"><thead><tr><th style="width:36px"><span class="vh">Keep</span></th><th>Title and link</th><th>Category</th><th>Level</th></tr></thead><tbody id="iBody"></tbody></table>
+   <p><button class="wpb pri" id="doImp" type="button">Import selected</button></p>
+  </section>
+
+  <section data-p="cef" hidden>
+   <div class="notice warn">These lessons have no <b>CEF</b> tag, so they show no level in the VIP table. Add the tag in the post and they drop off this list.</div>
+   <table class="wpt stack"><thead><tr><th>Lesson</th><th>Category</th><th>Tags now</th><th></th></tr></thead><tbody id="cBody"></tbody></table>
+  </section>
+ </div>
+</div>
+
+<div id="ov" class="ov" hidden></div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+{
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fold=s=>String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ł/g,'l');
+
+const WP_CATS=['Business English','Culture','English grammar','Entertain Yourself','Everyday English','Health and fitness','How to learn','How to say it 1','How to say it 3','Learn from TED','Learn more words','Man and Society','Personal productivity','Better communicator','Better writer','Science stuff','Surprise me','Talking Picture','Tests and Quizzes','The arts','Travel and nature','What do you think','Wise quotes'].sort();
+const TOOLS=['Swipe','Matching Game','Drill','Multidecker','Test'];
+const SRC={lesson:'Lesson',handout:'Handout lesson',swipe:'Swipe',mg:'Matching Game',drill:'Drill',md:'Multidecker',test:'Test',manual:'Manual'};
+const LV=['A1','A2','B1','B2','C1','C2'];
+
+let n=0;
+const R=(src,title,cat,tags,level)=>({id:++n,src,title,cat,tags,level,hidden:false,edited:false,orig:{title,cat,tags:[...tags],level}});
+let rows=[
+ R('lesson','Why we sleep','Health and fitness',['CEF C1','health','lifestyle','sleep'],'C1'),
+ R('lesson','6 Elevator Speeches by Daniel Pink','Better communicator',['CEF B1','Daniel Pink','elevator pitch','persuasion','presenting'],'B1'),
+ R('lesson','Business Social English Test - part 1','Tests and Quizzes',['business English','CEF A2','everyday English','social English','test'],'A2'),
+ R('lesson','David Bowie','Wise quotes',['artists','CEF B2','David Bowie','development','life'],'B2'),
+ R('lesson','Should You Learn British or American English?','Culture',['American English','British English','CEF B1','dialects','how to learn'],'B1'),
+ R('lesson','Can money buy happiness?','Man and Society',['CEF B2','happiness','money'],'B2'),
+ R('lesson','The Rules of Tennis Explained','Entertain Yourself',['CEF B1','sport','tennis'],'B1'),
+ R('lesson','Present Perfect or Past Simple?','English grammar',['CEF A2','grammar','tenses'],'A2'),
+ R('lesson','How to structure a business report','Better writer',['business writing','CEF B2','reports'],'B2'),
+ R('lesson','Phrasal verbs at work','Business English',['CEF B1','phrasal verbs','work'],'B1'),
+ R('lesson','The science of habits','Personal productivity',['CEF B2','habits','productivity'],'B2'),
+ R('lesson','Small talk on holiday','Everyday English',['CEF A2','small talk','travel'],'A2'),
+ R('lesson','Ordering in a restaurant','How to say it 1',['CEF A2','food','restaurant'],'A2'),
+ R('lesson','At the market','Talking Picture',['CEF A2','describing pictures','shopping'],'A2'),
+ R('lesson','Why we procrastinate','Personal productivity',['CEF B2','procrastination','TED'],'B2'),
+ R('lesson','Is social media good for us?','What do you think',['CEF B1','opinions','social media'],'B1'),
+ R('lesson','The deep sea','Science stuff',['CEF B2','nature','oceans','science'],'B2'),
+ R('lesson','Van Gogh in 10 minutes','The arts',['artists','CEF B1','painting'],'B1'),
+ R('lesson','How memory works','How to learn',['CEF C1','learning','memory'],'C1'),
+ R('lesson','Patagonia on foot','Travel and nature',['CEF B2','hiking','travel'],'B2'),
+ R('handout','Pitchforks','Man and Society',['CEF C1','inequality','economy'],'C1'),
+ R('swipe','Office idioms','Swipe',[],'B1'),
+ R('swipe','Sleep vocabulary','Swipe',[],'B2'),
+ R('mg','Collocations with make and do','Matching Game',[],'B1'),
+ R('mg','Feelings and emotions','Matching Game',[],'A2'),
+ R('drill','Talking about your week','Drill',[],'A2'),
+ R('drill','Opinions and agreeing','Drill',[],'B1'),
+ R('md','Business English starter pack','Multidecker',[],'B1'),
+ R('test','Tenses check','Test',[],'B1'),
+ R('test','Placement test','Test',[],''),
+];
+rows.find(r=>r.title==='Office idioms').tags=['idioms','work'];rows.find(r=>r.title==='Office idioms').edited=true;
+rows.push(Object.assign(R('manual','Phrasal verbs PDF pack','Learn more words',['CEF B1','PDF','phrasal verbs'],'B1'),{url:'/wp-content/uploads/2024/03/phrasal-verbs.pdf'}));
+
+/* ---------- routing ---------- */
+const views=['vip','glossary','admin'];
+function route(){const v=views.includes(location.hash.slice(1))?location.hash.slice(1):'vip';
+ views.forEach(x=>$('#v-'+x).hidden=x!==v);$$('.pbar a').forEach(a=>a.setAttribute('aria-current',a.hash==='#'+v?'page':'false'));
+ if(v==='vip')renderVip();if(v==='admin')renderAdmin();if(v==='glossary')renderGl();}
+addEventListener('hashchange',route);
+
+/* ---------- VIP ---------- */
+const st={sort:'title',dir:1,page:1};
+function fillCatFilter(){const used=[...new Set(rows.filter(r=>!r.hidden).map(r=>r.cat))];const cur=$('#fCat').value;
+ const wp=used.filter(c=>!TOOLS.includes(c)).sort(),tl=TOOLS.filter(t=>used.includes(t));
+ $('#fCat').innerHTML='<option value="">All categories</option><optgroup label="Lessons">'+wp.map(c=>`<option>${esc(c)}</option>`).join('')+'</optgroup><optgroup label="Activities">'+tl.map(c=>`<option>${esc(c)}</option>`).join('')+'</optgroup>';
+ $('#fCat').value=used.includes(cur)?cur:'';}
+function vipList(){const t=fold($('#fTitle').value.trim()),c=$('#fCat').value,g=fold($('#fTags').value.trim()),l=$('#fLvl').value,q=fold($('#q').value.trim());
+ return rows.filter(r=>!r.hidden&&(!t||fold(r.title).includes(t))&&(!c||r.cat===c)&&(!g||r.tags.some(x=>fold(x).includes(g)))&&(!l||r.level===l)&&(!q||fold([r.title,r.cat,r.tags.join(' '),r.level].join(' ')).includes(q)))
+  .sort((a,b)=>{const k=st.sort;const A=k==='level'?(LV.indexOf(a.level)+1||9):fold(a[k]),B=k==='level'?(LV.indexOf(b.level)+1||9):fold(b[k]);return (A<B?-1:A>B?1:0)*st.dir||fold(a.title).localeCompare(fold(b.title));});}
+function renderVip(){fillCatFilter();const list=vipList(),per=+$('#per').value,pages=Math.max(1,Math.ceil(list.length/per));st.page=Math.min(st.page,pages);
+ const s=(st.page-1)*per,slice=list.slice(s,s+per);
+ $('#vipT tbody').innerHTML=slice.length?slice.map(r=>`<tr><td class="t">${esc(r.title)}</td><td class="${TOOLS.includes(r.cat)?'cat-tool':''}">${esc(r.cat)}</td><td>${r.tags.map(x=>`<button type="button" class="tag" data-tag="${esc(x)}">${esc(x)}</button>`).join('')}</td><td>${r.level?`<span class="lvl">${esc(r.level)}</span>`:''}</td><td><a class="btn sm" href="#vip" onclick="return false">Open</a></td></tr>`).join('')
+  :'<tr class="empty"><td colspan="5">No lessons or activities match. Try fewer filters.</td></tr>';
+ $('#range').textContent=list.length?`Showing ${s+1} to ${s+slice.length} of ${list.length} entries`:'Showing 0 entries';
+ const nums=[];for(let i=1;i<=pages;i++)if(i===1||i===pages||Math.abs(i-st.page)<=1)nums.push(i);else if(nums[nums.length-1]!=='…')nums.push('…');
+ $('#pages').innerHTML=`<button class="pg" data-p="${st.page-1}" ${st.page===1?'disabled':''} aria-label="Previous page">‹</button>`+nums.map(i=>i==='…'?'<span style="padding:8px 4px">…</span>':`<button class="pg" data-p="${i}" ${i===st.page?'aria-current="page"':''}>${i}</button>`).join('')+`<button class="pg" data-p="${st.page+1}" ${st.page===pages?'disabled':''} aria-label="Next page">›</button>`;
+ $$('#vipT th[data-k]').forEach(th=>{const on=th.dataset.k===st.sort;th.setAttribute('aria-sort',on?(st.dir>0?'ascending':'descending'):'none');th.querySelector('.arr').textContent=on?(st.dir>0?'↑':'↓'):'↕';});
+ const act=[['fTitle','Title'],['fCat','Category'],['fTags','Tags'],['fLvl','Level'],['q','Search']].filter(([id])=>$('#'+id).value.trim());
+ $('#activeF').hidden=!act.length;$('#activeF').innerHTML='Filters: '+act.map(([id,l])=>`<button class="chipx" data-clr="${id}">${l}: ${esc($('#'+id).value)} ✕</button>`).join('')+(act.length>1?' <button class="chipx" data-clr="all">Clear all</button>':'');}
+['fTitle','fTags','q'].forEach(id=>$('#'+id).addEventListener('input',()=>{st.page=1;renderVip();}));
+['fCat','fLvl','per'].forEach(id=>$('#'+id).addEventListener('change',()=>{st.page=1;renderVip();}));
+$('#vipT thead').addEventListener('click',e=>{const th=e.target.closest('th[data-k]');if(!th)return;st.dir=st.sort===th.dataset.k?-st.dir:1;st.sort=th.dataset.k;renderVip();});
+$('#vipT tbody').addEventListener('click',e=>{const b=e.target.closest('.tag');if(b){$('#fTags').value=b.dataset.tag;st.page=1;renderVip();}});
+$('#pages').addEventListener('click',e=>{const b=e.target.closest('.pg');if(b&&!b.disabled){st.page=+b.dataset.p;renderVip();}});
+$('#activeF').addEventListener('click',e=>{const b=e.target.closest('[data-clr]');if(!b)return;(b.dataset.clr==='all'?['fTitle','fCat','fTags','fLvl','q']:[b.dataset.clr]).forEach(id=>$('#'+id).value='');st.page=1;renderVip();});
+
+/* ---------- Glossary ---------- */
+const GL=[['sleep deprivation','niedobór snu'],['to doze off','zdrzemnąć się'],['circadian rhythm','rytm dobowy'],['to toss and turn','przewracać się z boku na bok'],['drowsy','senny, ospały'],['to catch up on sleep','odespać'],['a night owl','nocny marek'],['an early bird','ranny ptaszek'],['insomnia','bezsenność'],['to nod off','przysnąć'],['restorative','regenerujący'],['to be wide awake','być w pełni rozbudzonym'],['REM sleep','faza snu REM'],['to hit the sack','iść spać (pot.)']];
+const groups={'Science words':23,'Work English':41,'Phrasal verbs':17};
+const dict={[fold('drowsy')]:'Science words'};
+const gs={page:1,all:false,li:true};let lastGroup='';
+function renderGl(){const q=fold($('#gq').value.trim());const list=GL.filter(([w,t])=>!q||fold(w+' '+t).includes(q));
+ const per=gs.all?list.length||1:10,pages=Math.max(1,Math.ceil(list.length/per));gs.page=Math.min(gs.page,pages);const s=(gs.page-1)*per,slice=list.slice(s,s+per);
+ $('#glActH').hidden=!gs.li;
+ $('#glT tbody').innerHTML=slice.length?slice.map(([w,t])=>{const k=fold(w),have=dict[k];
+  const act=!gs.li?'':`<td class="act">${have?`<span class="inDict" title="In ${esc(have)}">✓ In my dictionary</span>`:`<button type="button" class="add" data-w="${esc(w)}" data-t="${esc(t)}" aria-label="Add ${esc(w)} to My Dictionary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>My Dictionary</button>`}</td>`;
+  return `<tr><td>${esc(w)}</td><td>${esc(t)}</td>${act}</tr>`;}).join(''):`<tr class="empty"><td colspan="${gs.li?3:2}">No expressions match your search.</td></tr>`;
+ $('#gcount').textContent=`${list.length} expression${list.length===1?'':'s'}`;
+ $('#grange').textContent=list.length?`${s+1}–${s+slice.length} of ${list.length}`:'';
+ $('#gpages').innerHTML=(gs.all||pages===1?'':`<button class="pg" data-g="${gs.page-1}" ${gs.page===1?'disabled':''}>Previous</button><button class="pg" data-g="${gs.page+1}" ${gs.page===pages?'disabled':''}>Next</button>`)+(list.length>10?`<button class="pg" data-g="all">${gs.all?'Show 10 at a time':'Show all'}</button>`:'');}
+$('#gq').addEventListener('input',()=>{gs.page=1;renderGl();});
+$('#gpages').addEventListener('click',e=>{const b=e.target.closest('.pg');if(!b||b.disabled)return;if(b.dataset.g==='all'){gs.all=!gs.all;gs.page=1;}else gs.page=+b.dataset.g;renderGl();});
+$$('.switch button').forEach(b=>b.addEventListener('click',()=>{gs.li=b.dataset.li==='1';$$('.switch button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderGl();}));
+
+let lastFocus=null;
+function openOv(html,focusSel){lastFocus=document.activeElement;$('#ov').innerHTML=html;$('#ov').hidden=false;const f=$('#ov '+focusSel);f&&f.focus();}
+function closeOv(){$('#ov').hidden=true;$('#ov').innerHTML='';lastFocus&&lastFocus.focus&&lastFocus.focus();}
+$('#ov').addEventListener('click',e=>{if(e.target.id==='ov'||e.target.closest('[data-close]'))closeOv();});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#ov').hidden)closeOv();});
+function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400);}
+
+function groupHint(v){v=v.trim();if(!v)return'Type a group name or pick one from the list.';const k=Object.keys(groups).find(g=>fold(g)===fold(v));return k?`${groups[k]} words in this group.`:`<b>New group:</b> “${esc(v)}” will be created when you add the word.`;}
+$('#glT').addEventListener('click',e=>{const b=e.target.closest('.add');if(!b)return;
+ openOv(`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mh"><h2 id="mh">Add to My Dictionary</h2>
+  <div class="word">${esc(b.dataset.w)}</div>
+  <div class="field"><label for="mt">Translation</label><input id="mt" class="inp" type="text" value="${esc(b.dataset.t)}"></div>
+  <div class="field"><label for="mg">Group</label><input id="mg" class="inp" type="text" list="mgl" value="${esc(lastGroup)}" autocomplete="off"><datalist id="mgl">${Object.keys(groups).map(g=>`<option value="${esc(g)}">`).join('')}</datalist><div class="hint" id="mgh">${groupHint(lastGroup)}</div></div>
+  <div class="mact"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn" type="button" id="mAdd" data-w="${esc(b.dataset.w)}">Add word</button></div></div>`,lastGroup?'#mAdd':'#mg');
+ $('#mg').addEventListener('input',e=>{$('#mgh').className='hint';$('#mgh').innerHTML=groupHint(e.target.value);});
+ $('#mg').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#mAdd').click();}});
+ $('#mAdd').addEventListener('click',ev=>{const g=$('#mg').value.trim();if(!g){$('#mgh').className='hint err';$('#mgh').textContent='Pick a group or type a new one.';$('#mg').focus();return;}
+  const name=Object.keys(groups).find(x=>fold(x)===fold(g))||g;groups[name]=(groups[name]||0)+1;dict[fold(ev.target.dataset.w)]=name;lastGroup=name;closeOv();renderGl();toast(`+1 point · added to ${name}`);});
+});
+
+/* ---------- Admin ---------- */
+const catOptions=(sel,blank)=>(blank?'<option value="">Pick a category…</option>':'')+'<optgroup label="Activities (tools)">'+TOOLS.map(t=>`<option ${t===sel?'selected':''}>${esc(t)}</option>`).join('')+'</optgroup><optgroup label="WordPress categories">'+WP_CATS.map(c=>`<option ${c===sel?'selected':''}>${esc(c)}</option>`).join('')+'</optgroup>';
+$('#aSrc').innerHTML+=Object.entries(SRC).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
+function renderAdmin(){const s=$('#aSrc').value,q=fold($('#aQ').value.trim());
+ const list=rows.filter(r=>(!s||r.src===s)&&(!q||fold([r.title,r.cat,r.tags.join(' ')].join(' ')).includes(q))).sort((a,b)=>fold(a.title).localeCompare(fold(b.title)));
+ $('#aCount').textContent=`${list.length} rows`;
+ $('#aBody').innerHTML=list.map(r=>`<tr class="${r.hidden?'is-hidden':''}"><td><span class="rt">${esc(r.title)}</span>${r.edited?'<span class="flag">Edited</span>':''}${r.hidden?'<span class="flag hid">Hidden</span>':''}
+  <div class="ra"><button data-a="edit" data-id="${r.id}">Edit</button> | <button data-a="hide" data-id="${r.id}">${r.hidden?'Show':'Hide'}</button>${r.edited&&r.src!=='manual'?` | <button data-a="reset" data-id="${r.id}">Reset</button>`:''}${r.src==='manual'?` | <button class="del" data-a="del" data-id="${r.id}">Delete</button>`:''}</div></td>
+  <td><span class="src ${r.src==='manual'?'manual':''}">${esc(SRC[r.src])}</span></td><td>${esc(r.cat)}</td><td>${esc(r.tags.join(', '))}</td><td>${esc(r.level)}</td></tr>`).join('');
+ $('#nImp').textContent=imp.length;$('#nImp').hidden=!imp.length;$('#nCef').textContent=cef.length;$('#nCef').hidden=!cef.length;renderImp();renderCef();}
+$('#aSrc').addEventListener('change',renderAdmin);$('#aQ').addEventListener('input',renderAdmin);
+$$('.tabs button').forEach(b=>b.addEventListener('click',()=>{$$('.tabs button').forEach(x=>x.setAttribute('aria-selected',String(x===b)));$$('#v-admin section').forEach(p=>p.hidden=p.dataset.p!==b.dataset.t);}));
+
+function rowForm(r){const auto=r&&r.src!=='manual';
+ openOv(`<div class="wpmodal" role="dialog" aria-modal="true" aria-labelledby="wh"><h2 id="wh">${r?'Edit row':'Add row'}</h2>
+  ${auto?`<div class="row"><span>Source</span><span class="ro">${esc(SRC[r.src])} · link is set automatically</span></div>`:`<div class="row"><label for="wU">Link</label><input id="wU" type="url" value="${esc(r&&r.url||'')}" placeholder="https://thebluetree.pl/…"></div>`}
+  <div class="row"><label for="wT">Title</label><input id="wT" type="text" value="${esc(r?r.title:'')}"></div>
+  <div class="row"><label for="wC">Category</label><select id="wC">${catOptions(r?r.cat:'',!r)}</select></div>
+  <div class="row"><label for="wG">Tags</label><input id="wG" type="text" value="${esc(r?r.tags.join(', '):'')}"></div><p class="desc">Separate tags with commas.${auto&&(r.src==='lesson'||r.src==='handout')?' For lessons, the level comes from the CEF tag.':''}</p>
+  <div class="row"><label for="wL">Level</label><select id="wL"><option value="">None</option>${LV.map(l=>`<option ${r&&r.level===l?'selected':''}>${l}</option>`).join('')}</select></div>
+  ${auto?'<p class="desc" style="margin-left:0">Your changes override the automatic values until you press Reset.</p>':''}
+  <p class="why" id="wE" hidden></p>
+  <div class="mact" style="margin-top:8px"><button class="wpb" type="button" data-close>Cancel</button><button class="wpb pri" type="button" id="wS">${r?'Save':'Add row'}</button></div></div>`,'#wT');
+ $('#wS').addEventListener('click',()=>{const title=$('#wT').value.trim(),cat=$('#wC').value,tags=$('#wG').value.split(',').map(x=>x.trim()).filter(Boolean),level=$('#wL').value;
+  const err=!title?'Add a title.':!cat?'Pick a category.':(!auto&&!$('#wU').value.trim())?'Add a link.':'';if(err){$('#wE').textContent=err;$('#wE').hidden=false;return;}
+  if(r){Object.assign(r,{title,cat,tags,level});if(auto)r.edited=JSON.stringify({title,cat,tags,level})!==JSON.stringify(r.orig);else r.url=$('#wU').value.trim();}
+  else rows.push(Object.assign(R('manual',title,cat,tags,level),{url:$('#wU').value.trim()}));
+  closeOv();renderAdmin();});}
+$('#addRow').addEventListener('click',()=>rowForm(null));
+$('#aBody').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const r=rows.find(x=>x.id===+b.dataset.id);
+ if(b.dataset.a==='edit')return rowForm(r);
+ if(b.dataset.a==='hide')r.hidden=!r.hidden;
+ if(b.dataset.a==='reset'){Object.assign(r,{title:r.orig.title,cat:r.orig.cat,tags:[...r.orig.tags],level:r.orig.level,edited:false});}
+ if(b.dataset.a==='del'){return openOv(`<div class="wpmodal" role="dialog" aria-modal="true"><h2>Delete this row?</h2><p>“${esc(r.title)}” will be removed from the VIP table. This can't be undone.</p><div class="mact"><button class="wpb" data-close>Cancel</button><button class="wpb pri" id="dY" style="background:#b32d2e;border-color:#b32d2e">Delete</button></div></div>`,'#dY'),$('#dY').addEventListener('click',()=>{rows=rows.filter(x=>x!==r);closeOv();renderAdmin();});}
+ renderAdmin();});
+
+let imp=[
+ {t:'Phrasal verbs with GET (PDF)',u:'/wp-content/uploads/2023/05/get-phrasal-verbs.pdf',c:'Learn more words',l:'B1'},
+ {t:'Job interview questions (PDF)',u:'/wp-content/uploads/2023/09/job-interview.pdf',c:'',was:'Busines English',l:'B2'},
+ {t:'Christmas traditions quiz',u:'https://thebluetree.pl/christmas-quiz/',c:'',was:'Holidays',l:'A2'},
+ {t:'Email phrases cheat sheet (PDF)',u:'/wp-content/uploads/2024/01/email-phrases.pdf',c:'Better writer',l:'B1'},
+ {t:'Irregular verbs list (PDF)',u:'/wp-content/uploads/2022/11/irregular-verbs.pdf',c:'English grammar',l:'A2'},
+ {t:'Old free lesson (link broken)',u:'https://thebluetree.pl/?p=1234',c:'Culture',l:'B1',broken:true},
+].map((x,i)=>Object.assign(x,{id:i,keep:!x.broken}));
+function renderImp(){$('#leftN').textContent=21+imp.length;
+ $('#iBody').innerHTML=imp.length?imp.map(x=>`<tr><td><input type="checkbox" data-k="${x.id}" ${x.keep?'checked':''} aria-label="Keep ${esc(x.t)}"></td><td><b>${esc(x.t)}</b><br><span style="color:#646970;word-break:break-all">${esc(x.u)}</span>${x.broken?'<br><span class="why">The page this links to no longer exists.</span>':''}</td>
+  <td><select data-c="${x.id}" class="${x.c?'':'badcat'}" aria-label="Category">${catOptions(x.c,true)}</select>${x.was?`<br><span class="why">“${esc(x.was)}” is not a category</span>`:''}</td><td>${esc(x.l)}</td></tr>`).join(''):'<tr><td colspan="4">Nothing left to check.</td></tr>';
+ $('#doImp').disabled=!imp.length;}
+$('#iBody').addEventListener('change',e=>{const k=e.target.dataset.k,c=e.target.dataset.c;if(k!==undefined)imp[imp.findIndex(x=>x.id==k)].keep=e.target.checked;if(c!==undefined){const x=imp.find(y=>y.id==c);x.c=e.target.value;renderImp();}});
+$('#doImp').addEventListener('click',()=>{const bad=imp.filter(x=>x.keep&&!x.c);if(bad.length){toast(`Pick a category for ${bad.length} row${bad.length>1?'s':''} first`);$('#toast').style.background='#b32d2e';setTimeout(()=>$('#toast').style.background='',2500);return;}
+ const go=imp.filter(x=>x.keep);go.forEach(x=>rows.push(Object.assign(R('manual',x.t,x.c,[`CEF ${x.l}`],x.l),{url:x.u})));imp=imp.filter(x=>!x.keep);renderAdmin();toast(`${go.length} rows imported as manual rows`);});
+
+const cef=[['Learn the alphabet','Everyday English','alphabet, beginners'],['Ted Lasso: be curious','Wise quotes','curiosity, TV'],['Writing a cover letter','Better writer','jobs, letters, writing'],['Money idioms','Learn more words','idioms, money']];
+function renderCef(){$('#cBody').innerHTML=cef.map(([t,c,g])=>`<tr><td><span class="rt">${esc(t)}</span></td><td>${esc(c)}</td><td>${esc(g)}</td><td><a class="wpb" href="#admin" onclick="return false">Edit post</a></td></tr>`).join('');}
+
+route();
+}
+</script>
+</body>
+</html>

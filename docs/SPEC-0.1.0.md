@@ -27,11 +27,12 @@ Each source is checked when it is read (`class_exists` / `post_type_exists`). If
 |---|---|
 | Rows | Two kinds. **Automatic** rows come from lessons and tools, are rebuilt from the source, and their link is always the source's own. **Manual** rows are typed in or imported, and Mariusz owns every field of them. |
 | Columns (front) | Title · Category · Tags · Level · Link (**Open** pill). Filters: Title, Category (dropdown), Tags, Level (dropdown), plus **Search everything**, **Show N entries** (5/10/25/50/100, default 10), and sorting on Title, Category and Level. Default sort: Title A–Z. |
-| Category list | WordPress categories plus five **tool names**: Swipe, Matching Game, Drill, Test, Multidecker. Automatic tool rows use their tool name. In every admin dropdown, tool names are listed first under *Activities (tools)*, then *WordPress categories*. On the front, the Category filter lists only categories that have at least one visible row, in two groups: *Lessons* and *Activities*. |
+| Category list | WordPress categories, plus five **tool names** (Swipe, Matching Game, Drill, Test, Multidecker), plus **extra categories** from Settings (default: **Language Games**, **Mind-maps**; one per line, editable). Automatic tool rows use their tool name. In every admin dropdown the order is *Activities (tools)*, then *Other* (the extra categories), then *WordPress categories*. On the front, the Category filter lists only categories that have at least one visible row, in two groups: *Lessons* (WordPress categories) and *Activities* (tools and extras). |
 | Lesson rows | Published posts (`post`) with at least one category from the **Lesson categories** setting, and none from the **Never list** setting. The category shown is the post's lesson category. If a post has more than one, the child category wins over its parent, then alphabetical order. Tags: all the post's tags, sorted A–Z (case-insensitive). The link is the permalink. Handout and PDF lessons are ordinary posts, so they come in the same way. |
 | Level | Lessons: from the tag `CEF A1`…`CEF C2` (case and spaces ignored), else `_tbtlb_level`, else empty. Tools: the tool's own level if it has one (Swipe `level`, Matching Game data `level`), else empty. Mariusz fills in missing tool levels by hand (an edit), and that's fine. |
 | Tool rows | **Swipe:** decks with `deck_type` = `open` that are not drafts. Link: `TBTS_DB::deck_url( $set )`, and a row is skipped when that's `''`. **Matching Game:** published `tbt_match_game` posts (Phase 0 checks whether there's a class-only state to exclude). Link: permalink. **Drill:** published drills that anyone with the link can open (Phase 0 defines this). Link: `TBTD_URLs::drill_url( $slug )` (Phase 0 confirms the class name). **Test:** `status` published **and** `access` = `open`. Link: `TBTTM_URLs::test_url( $slug )`. Tool rows start with no tags. |
-| Multidecker | Not a plugin on this site. Its links are **manual rows** from the import, with category **Multidecker**. |
+| Multidecker | Not a plugin on this site. Its links (hosts `multidecker.com` and `squarewords.arturdelura.com`) are **manual rows** from the import, with category **Multidecker**. Table 185 files them under *Flashcard Sets*. |
+| Not imported | Table 185 rows in **Handouts, Video Library, Audio library, Articles** are left out for good (Mariusz, 25 Nov 2026). The list is a setting. |
 | Edits | Editing an automatic row stores an **override** for title, category, tags and level. A field with no override follows the source. **Reset** removes all overrides on that row. The link of an automatic row can't be edited. |
 | Hide | Any row can be hidden. Hidden rows never reach the front. In admin they show greyed with a **Hidden** flag. |
 | Delete | Manual rows only, with a confirm dialog built into the page. Automatic rows are hidden, never deleted. |
@@ -44,15 +45,29 @@ Each source is checked when it is read (`class_exists` / `post_type_exists`). If
 
 ## Phase 0 — read-only inventory (stop and report)
 
-CC can't see the live database. Steps 1–3 are **read-only SQL for Mariusz** to run in phpMyAdmin (database `serwer135893_bluetree`). Write the queries with the site's real table prefix (find it first with `SHOW TABLES LIKE '%options'`), and keep each one short enough to paste. Mariusz pastes the results back into the session.
+CC can't see the live database. Steps 2–3 are **read-only SQL for Mariusz** to run in phpMyAdmin (database `serwer135893_bluetree`, table prefix `wp_`). Keep each query short enough to paste. Mariusz pastes the results back into the session.
 
-1. **Table 185.** Find out where its rows live:
-   - `SHOW TABLES LIKE '%wpdatatable%';`
-   - the row for ID 185 in the wpDataTables table list: `id`, `title`, `table_type`, `LEFT(content, 400)`
-   - if it's a manual table (rows in the database): `SHOW CREATE TABLE` of its data table, `SELECT COUNT(*)`, and `SELECT * … LIMIT 15`
-   - the **link domains**: count of rows per host of the link column (the link may be a bare URL or an `<a href>`, so the query should pull out the `href` when there is one)
+1. **Table 185: already answered (25 Nov 2026), no query needed.** In `wp_wpdatatables`, ID 185 ("TBT CATALOGUE") is `table_type` `manual` with `mysql_table_name` `wp_wpdatatable_62`. Mariusz exported that table to CSV, and Claude read all of it:
+   - **965 rows.** Columns: `wdt_ID`, `name` (the link), `title`, `category`, `tags`, `level`.
+   - **`name`** is a bare URL, or (73 rows) `URL||<button class="">OPEN</button>` / `…OPEN LESSON…`. The link is the part before `||`, HTML-decoded (one has `&amp;`).
+   - **Empty rows:** 8 have an empty link and `NULL` elsewhere. One more (`660`) has a title but no link.
+   - **`tags`:** separated by ` | ` (208 rows) or `, ` (most others), sometimes with a trailing comma.
+   - **`level`:** mostly A1–C2. Otherwise: `all` (4), `NULL` (14), empty (1), and two levels at once (`B2, B1`, `C1, B2`).
+   - **`category`:** 54 spellings, including leading spaces, `&` vs `and`, `&amp;`, different capital letters, and several categories at once (`Learn words,  Everyday English`).
+   - **Hosts:**
 
-   Report the columns (title, category, tags, level, link) and how tags are separated. **Hard stop** if the rows are not in the database (e.g. read live from Google Sheets or an Excel file). We then switch the importer to a CSV that Mariusz exports.
+     | Host | Rows |
+     |---|---|
+     | thebluetree.pl | 640 (601 posts, 36 files in uploads, 3 draft previews `?p=…&preview=true`) |
+     | multidecker.com | 233 |
+     | squarewords.arturdelura.com (Multidecker's old address) | 1 |
+     | polecanynauczycielangielskiego.pl | 40 (PDFs) |
+     | view.genial.ly / view.genially.com | 20 |
+     | docs.google.com, drive.google.com, vimeo.com, player.vimeo.com, wordwall.net, youtu.be, edpuzzle.com, learnenglishkids.britishcouncil.org | 1–6 each |
+
+   - **Duplicate links:** 20.
+
+   CC confirms only that `wp_wpdatatable_62` is the name to use. The importer reads `mysql_table_name` for ID 185 from `wp_wpdatatables` at run time, and stops with a clear message if that table is missing.
 2. **Categories.** Every category: term ID, name, slug, parent, and count of published posts. Mark which look like real lesson categories and which are labels (e.g. *darmowa lekcja*, *Lucy*). Also count how many published posts have **two or more** of the lesson categories, and give five examples.
 3. **CEF tags.** Count published posts in lesson categories **with** and **without** a tag whose name matches `CEF A1`…`CEF C2`. List every tag name that starts with `CEF` with its post count, to catch spellings like `CEF b1` or `CEF  B2`.
 4. **Tools (from the repos, `git clone --depth 1`).** For each of `tbt-swipe`, `tbt_matching_game`, `translation-drill` and `tbt-test-maker`, report:
@@ -64,11 +79,10 @@ CC can't see the live database. Steps 1–3 are **read-only SQL for Mariusz** to
    Expected: Swipe `deck_type` + `status` + `level` + `TBTS_DB::deck_url()`; Test Maker `status` + `access` + `TBTTM_URLs::test_url()`; Drill `status` + `class_id` + `drill_url()`; Matching Game `post_status` + `_tbtmg_game_data['level']`.
 5. **Skeleton.** Copy from `aparatofan/tbt-poll`: the bootstrap shape, Hub item filter, the admin submenu under `TBT_HUB_SLUG` (and its fallback when Hub is absent), `.github/workflows/deploy.yml` (with `tbt-poll.php` → `tbt-search-table.php` in the preflight), and the tests layout. Copy from `aparatofan/flashcards` the bundled `tbt-tokens.css` fallback and the glossary's table, search and pager CSS patterns, which the prototype follows.
 6. **Report and STOP.** **Hard stop** if:
-   - step 1 says the rows aren't in the database;
    - a tool's "open" state can't be told apart from class-only items;
    - a tool's link can only be built by copying private code.
 
-   Otherwise, end with a short table: the proposed **Lesson categories** default (the 23 categories with banner icons in Lesson Builder's `CATEGORY_ICONS`, or Mariusz's corrections), the **Never list** default (*darmowa lekcja* and any other label from step 2), and the **Multidecker** host or hosts from step 1. Wait for Mariusz to confirm.
+   Otherwise, end with a short table: the proposed **Lesson categories** default (the 23 categories with banner icons in Lesson Builder's `CATEGORY_ICONS`, or Mariusz's corrections), and the **Never list** default (*darmowa lekcja* and any other label from step 2). The Multidecker hosts are already known (step 1). Wait for Mariusz to confirm.
 
 ---
 
@@ -133,11 +147,16 @@ No WordPress functions. Tested in Task 10.
 - `cef_level( array $tags )`: the first tag matching `/^\s*cef\s*(a1|a2|b1|b2|c1|c2)\s*$/i`, upper-cased level, else `''`.
 - `split_tags( $s )`: splits on `|`, `,` or `;`, trims, drops empties, de-duplicates (by `fold`), keeps the first spelling.
 - `sort_tags( array $tags )`: A–Z by `fold`.
-- `href( $s )`: the URL from a bare link or from the first `href="…"` / `href='…'`; `''` if none.
+- `href( $s )`: the part before `||` if there is one. Otherwise the first `href="…"` / `href='…'`, or the bare link. HTML-decoded and trimmed; `''` for empty or `NULL`.
 - `normalise_url( $url )`: lower-case scheme and host, drop `www.`, drop a trailing slash, keep the path and only the query keys `p`, `page_id`, `deck`, `test`, `drill` (sorted). Used to match table 185 links to automatic rows.
-- `kind( $url, $site_host, array $md_hosts )`: `multidecker` (host in `$md_hosts`), `pdf` (path ends `.pdf`), `site` (host = site host), `other`.
-- `match_category( $text, array $names )`: the name whose `fold` equals `fold( $text )`, else `''`.
-- `valid_level( $s )`: `A1`…`C2` (upper-cased) or `''`.
+- `kind( $url, $site_host, array $md_hosts )`: `multidecker` (host in `$md_hosts`), `file` (path contains `/wp-content/uploads/` on any host, or ends in `.pdf`), `draft` (site host and the query has `preview=true`), `site` (site host), `other`.
+- `cat_key( $s )`: HTML-decode, `&` → `and`, then `fold`. So `Tests &amp; Quizzes`, `Tests & Quizzes` and ` tests and quizzes` all give the same key.
+- `match_category( $text, array $names, array $aliases )`: split `$text` on commas, and for each part in order:
+  1. if `cat_key( part )` matches an alias key, return that alias's name;
+  2. else if it equals `cat_key` of a name, return that name.
+
+  Return `''` if nothing matches. The aliases are fixed in 0.1.0: `Flashcard Sets` → `Multidecker`, `Games` → `Language Games`.
+- `valid_level( $s )`: `A1`…`C2` (upper-cased) or `''`. So `all`, `NULL` and `B2, B1` give `''`.
 
 ## Task 3 — Automatic rows (`class-tbtst-sources.php`)
 
@@ -195,7 +214,9 @@ Four tabs. The first three are as in the prototype, plus **Settings**:
 4. **Settings.**
    - **Lesson categories:** a checkbox list of all categories, grouped under parents. Default from Phase 0.
    - **Never list posts in:** a checkbox list, with *darmowa lekcja* as the default.
-   - **Multidecker hosts:** one per line, default from Phase 0.
+   - **Extra categories:** one per line. Default: `Language Games`, `Mind-maps`. Removing one that rows still use marks those rows **Unknown category** (Task 1).
+   - **Multidecker hosts:** one per line. Default: `multidecker.com`, `squarewords.arturdelura.com`.
+   - **Never import table 185 categories:** one per line. Default: `Handouts`, `Handout`, `Video Library`, `Audio library`, `Articles`. Matching uses `cat_key`. For a value with several categories (`Business English,  Handouts`), the row is skipped if **any** part matches.
 
    Saving flushes the cache.
 
@@ -203,19 +224,21 @@ Four tabs. The first three are as in the prototype, plus **Settings**:
 
 Read-only until **Import selected**. Every action is a REST call with a nonce, and nothing is written on page load.
 
-**Scan.** Read every row of table 185 (where Phase 0 found it). For each row:
-1. Use `href()` on the link and `split_tags()` on the tags. The level comes from the level column via `valid_level`, else from `cef_level( tags )`.
-2. **Covered:** the normalised link equals the normalised link of an automatic row, or `url_to_postid()` gives a post that is an automatic lesson row. Skipped and counted.
-3. **Duplicate:** the same normalised link as an earlier row in table 185. Skipped and counted.
-4. **Already imported:** `import_ref` exists in `tbtst_rows`. Skipped and counted.
-5. Everything else is **left to check**, grouped by `kind()`:
-   - **Multidecker links**: category preset **Multidecker**, all ticked.
-   - **PDF files**: ticked.
-   - **Links to this site**: ticked, unless `url_to_postid()` = 0 and the path isn't a file. Those rows are unticked and marked "The page this links to no longer exists."
-   - **Other sites**: ticked.
+**Scan.** Read every row of `wp_wpdatatable_62` (the table named by `mysql_table_name` for ID 185; see Phase 0 step 1). Columns: `wdt_ID` → `import_ref`, `name` → link, `title`, `category`, `tags`, `level`. Check each row in this order, and stop at the first rule that applies:
+1. **Empty:** `href( name )` is `''`. Skipped and counted (9 expected).
+2. **Not imported (by rule):** the category matches **Never import table 185 categories** (Settings). Skipped and counted.
+3. **Draft preview:** `kind()` = `draft`. Skipped and counted (3 expected).
+4. **Covered:** the normalised link equals the normalised link of an automatic row, or `url_to_postid()` gives a post that is an automatic lesson row. Skipped and counted.
+5. **Duplicate:** the same normalised link as an earlier row in table 185. Skipped and counted.
+6. **Already imported:** `import_ref` exists in `tbtst_rows`. Skipped and counted.
+7. Everything else is **left to check**. Tags come from `split_tags()`. The level comes from `valid_level( level )`, else `cef_level( tags )`, else none. The rows are grouped by `kind()`:
+   - **Multidecker links** (about 234): `match_category` gives **Multidecker** through the `Flashcard Sets` alias. All ticked.
+   - **Files** (PDFs and other files on TBT or polecanynauczycielangielskiego.pl): ticked.
+   - **Links to this site** that aren't covered: these are usually posts outside the Lesson categories (for example *Quote and Question*), or deleted pages. Ticked, unless `url_to_postid()` = 0. Those rows are unticked and marked "The page this links to no longer exists."
+   - **Other sites** (Genially, Wordwall, Google Docs, Edpuzzle, YouTube…): ticked.
 
 **Screen.**
-- The stats line: rows in table 185 · covered · duplicates · already imported · left to check.
+- The stats line: rows in table 185 · empty · not imported (by rule) · draft previews · covered · duplicates · already imported · left to check. Each count can be expanded to show its rows (title and link, read-only), so Mariusz can see what was left out.
 - One collapsible section per group, with a group checkbox (select all / none), a count, and a **Set category for the ticked rows** dropdown with **Apply**.
 - Each row: checkbox · title and link · category dropdown · level. The category is preset by `match_category()` against the current list. Unmatched categories show red, with "“X” is not a category" under them.
 - **Import selected** refuses while any ticked row has no category, with a message naming the count. The rest is a toast.
@@ -224,7 +247,7 @@ Read-only until **Import selected**. Every action is a REST call with a nonce, a
 
 **Undo last import.** Shown when a batch exists. It deletes that batch's manual rows that haven't been edited since (`updated_at` = `created_at`), and says how many were kept because they had been edited.
 
-Large table: the scan runs in one request. If Phase 0 shows more than about 3 000 rows, say so in the report, so we can page it.
+The table has 965 rows, so the scan runs in one request.
 
 ## Task 8 — REST (`class-tbtst-rest.php`)
 
@@ -254,11 +277,17 @@ Each route returns the updated row (or list) so the screen re-renders without a 
 Plain PHP, as TBT Poll's tests. Cover every Task 2 helper:
 - `cef_level`: `CEF B1`, `cef  c2`, `CEF B1+` rejected, none.
 - `split_tags`: pipes, commas, duplicates, empties.
-- `href`: bare, `<a href>`, single quotes, none.
+- `href`: bare, `URL||<button class="">OPEN</button>`, `<a href>`, single quotes, `&amp;`, `NULL`, empty.
 - `normalise_url`: www, slash, scheme, kept vs dropped query keys.
-- `kind`: all four.
-- `match_category`: case and accents.
-- `valid_level`.
+- `kind`: all five, including a PNA PDF (`file`) and `?p=1&preview=true` (`draft`).
+- `cat_key` and `match_category`:
+  - `Tests &amp; Quizzes`, `Tests & Quizzes` → `Tests and Quizzes`
+  - ` Personal productivity` (leading space)
+  - `Man and society` → `Man and Society`
+  - `Flashcard Sets` → `Multidecker`
+  - `Learn words,  Everyday English` → `Everyday English` when `Learn words` isn't a name
+  - an unknown category → `''`
+- `valid_level`: `B1`, `b2`, `all`, `NULL`, `B2, B1`.
 
 ## Validation
 
@@ -294,6 +323,7 @@ wpDataTables itself stays installed until the glossaries are moved (the next rel
 - [ ] Admin edit of a Swipe deck (tags + level) shows on the VIP page after a reload; **Reset** brings back the original.
 - [ ] Hiding a row removes it from the VIP page; Show brings it back.
 - [ ] Add row: category is a dropdown; saving without one is refused.
+- [ ] Import stats: about 9 empty, 3 draft previews and the Handouts / Video Library / Audio library / Articles rows are listed as skipped, not offered. Language Games and Mind-maps rows are offered with their category already matched (green).
 - [ ] Import: Multidecker group preset and ticked; a red category blocks import until fixed; after import, the Multidecker links appear on the VIP page with category *Multidecker* and open in a new tab. Scanning again shows them as **already imported**.
 - [ ] Undo last import removes the batch (try on a small test batch first, then import again).
 - [ ] Missing CEF tag lists lessons without the tag; adding the tag and pressing Refresh now removes the lesson from the list.
